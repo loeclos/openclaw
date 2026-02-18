@@ -59,6 +59,8 @@ export function registerCronEditCommand(cron: Command) {
       )
       .option("--best-effort-deliver", "Do not fail job if delivery fails")
       .option("--no-best-effort-deliver", "Fail job when delivery fails")
+      .option("--tools-allowed <list>", "Comma-sperated allowed tools/groups (isolated only)")
+      .option("--tools-denied <list>", "Comma-sperated denied tools/groups (isolated only)")
       .action(async (id, opts) => {
         try {
           if (opts.session === "main" && opts.message) {
@@ -93,6 +95,10 @@ export function registerCronEditCommand(cron: Command) {
             return parsed;
           })();
 
+          const hasToolsFlags = opts.toolsAllowed || opts.toolsDenied;
+          if (hasToolsFlags && opts.session != "isolated") {
+            throw new Error("--tools-allowed/--tools-denied require --session isolated.");
+          }
           const patch: Record<string, unknown> = {};
           if (typeof opts.name === "string") {
             patch.name = opts.name;
@@ -235,6 +241,24 @@ export function registerCronEditCommand(cron: Command) {
             if (typeof opts.channel === "string") {
               const channel = opts.channel.trim();
               delivery.channel = channel ? channel : undefined;
+            }
+            if (hasToolsFlags) {
+              patch.tools = {
+                allow:
+                  typeof opts.toolsAllowed === "string" && opts.toolsAllowed.trim()
+                    ? opts.toolsAllowed
+                        .split(",")
+                        .map((t: string) => t.trim())
+                        .filter(Boolean)
+                    : undefined,
+                deny:
+                  typeof opts.toolsDenied === "string" && opts.toolsDenied.trim()
+                    ? opts.toolsDenied
+                        .split(",")
+                        .map((t: string) => t.trim())
+                        .filter(Boolean)
+                    : undefined,
+              };
             }
             if (typeof opts.to === "string") {
               const to = opts.to.trim();

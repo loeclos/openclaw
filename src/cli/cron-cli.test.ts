@@ -434,34 +434,84 @@ describe("cron cli", () => {
   });
 
   it("sets explicit stagger for cron add", async () => {
-    const params = await runCronAddAndGetParams([
-      "--name",
-      "staggered",
-      "--cron",
-      "0 * * * *",
-      "--stagger",
-      "45s",
-      "--session",
-      "main",
-      "--system-event",
-      "tick",
-    ]);
+    resetGatewayMock();
+  it("supports --tools-allowed on cron add", async () => {
+    callGatewayFromCli.mockClear();
+
+    const program = buildProgram();
+
+    await program.parseAsync(
+      [
+        "cron",
+        "add",
+        "--name",
+        "staggered",
+        "--cron",
+        "0 * * * *",
+        "--stagger",
+        "45s",
+        "--session",
+        "main",
+        "--system-event",
+        "tick",
+        "Keep me",
+        "--at",
+        "20m",
+        "--session",
+        "isolated",
+        "--message",
+        "hello",
+        "--tools-allowed",
+        "gateway,exec",
+      ],
+      { from: "user" },
+    );
+
+    const addCall = callGatewayFromCli.mock.calls.find((call) => call[0] === "cron.add");
+    const params = addCall?.[2] as { schedule?: { kind?: string; staggerMs?: number } };
     expect(params?.schedule?.kind).toBe("cron");
     expect(params?.schedule?.staggerMs).toBe(45_000);
   });
 
   it("sets exact cron mode on add", async () => {
-    const params = await runCronAddAndGetParams([
-      "--name",
-      "exact",
-      "--cron",
-      "0 * * * *",
-      "--exact",
-      "--session",
-      "main",
-      "--system-event",
-      "tick",
-    ]);
+    resetGatewayMock();
+    const params = addCall?.[2] as { tools?: { allow: Array<string> } };
+    expect(params?.tools?.allow).toEqual(["gateway", "exec"]);
+  });
+
+  it("supports --tools-denied on cron add", async () => {
+    callGatewayFromCli.mockClear();
+
+    const program = buildProgram();
+
+    await program.parseAsync(
+      [
+        "cron",
+        "add",
+        "--name",
+        "exact",
+        "--cron",
+        "0 * * * *",
+        "--exact",
+        "--session",
+        "main",
+        "--system-event",
+        "tick",
+        "Keep me",
+        "--at",
+        "20m",
+        "--session",
+        "isolated",
+        "--message",
+        "hello",
+        "--tools-denied",
+        "gateway,exec",
+      ],
+      { from: "user" },
+    );
+
+    const addCall = callGatewayFromCli.mock.calls.find((call) => call[0] === "cron.add");
+    const params = addCall?.[2] as { schedule?: { kind?: string; staggerMs?: number } };
     expect(params?.schedule?.kind).toBe("cron");
     expect(params?.schedule?.staggerMs).toBe(0);
   });
@@ -472,6 +522,17 @@ describe("cron cli", () => {
 
     await expect(
       program.parseAsync(
+    const params = addCall?.[2] as {
+      tools?: { deny: Array<string> };
+    };
+    expect(params?.tools?.deny).toEqual(["gateway", "exec"]);
+  });
+
+  it("errors when using --tools-allowed without --session isolated", async () => {
+    const program = buildProgram();
+
+    await expect(async () => {
+      await program.parseAsync(
         [
           "cron",
           "add",
@@ -498,6 +559,25 @@ describe("cron cli", () => {
 
     await expect(
       program.parseAsync(
+          "Test",
+          "--at",
+          "20m",
+          "--session",
+          "main",
+          "--system-event",
+          "hello",
+          "--tools-allowed",
+          "gateway",
+        ],
+        { from: "user" },
+      );
+    }).rejects.toThrow("__exit__:1");
+  });
+  it("errors when using --tools-allowed without --session isolated", async () => {
+    const program = buildProgram();
+
+    await expect(async () => {
+      await program.parseAsync(
         [
           "cron",
           "add",
@@ -593,5 +673,18 @@ describe("cron cli", () => {
     await expect(
       program.parseAsync(["cron", "edit", "job-1", "--exact"], { from: "user" }),
     ).rejects.toThrow("__exit__:1");
+          "Test",
+          "--at",
+          "20m",
+          "--session",
+          "main",
+          "--system-event",
+          "hello",
+          "--tools-denied",
+          "exec",
+        ],
+        { from: "user" },
+      );
+    }).rejects.toThrow("__exit__:1");
   });
 });
