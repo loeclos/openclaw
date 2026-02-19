@@ -59,8 +59,8 @@ export function registerCronEditCommand(cron: Command) {
       )
       .option("--best-effort-deliver", "Do not fail job if delivery fails")
       .option("--no-best-effort-deliver", "Fail job when delivery fails")
-      .option("--tools-allowed <list>", "Comma-sperated allowed tools/groups (isolated only)")
-      .option("--tools-denied <list>", "Comma-sperated denied tools/groups (isolated only)")
+      .option("--tools-allowed <list>", "Comma-separated allowed tools/groups (isolated only)")
+      .option("--tools-denied <list>", "Comma-separated denied tools/groups (isolated only)")
       .action(async (id, opts) => {
         try {
           if (opts.session === "main" && opts.message) {
