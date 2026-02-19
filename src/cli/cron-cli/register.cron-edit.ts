@@ -230,6 +230,25 @@ export function registerCronEditCommand(cron: Command) {
             patch.payload = payload;
           }
 
+          if (hasToolsFlags) {
+            patch.tools = {
+              allow:
+                typeof opts.toolsAllowed === "string" && opts.toolsAllowed.trim()
+                  ? opts.toolsAllowed
+                      .split(",")
+                      .map((t: string) => t.trim())
+                      .filter(Boolean)
+                  : undefined,
+              deny:
+                typeof opts.toolsDenied === "string" && opts.toolsDenied.trim()
+                  ? opts.toolsDenied
+                      .split(",")
+                      .map((t: string) => t.trim())
+                      .filter(Boolean)
+                  : undefined,
+            };
+          }
+
           if (hasDeliveryModeFlag || hasDeliveryTarget || hasBestEffort) {
             const deliveryMode =
               opts.announce || opts.deliver === true
@@ -241,24 +260,6 @@ export function registerCronEditCommand(cron: Command) {
             if (typeof opts.channel === "string") {
               const channel = opts.channel.trim();
               delivery.channel = channel ? channel : undefined;
-            }
-            if (hasToolsFlags) {
-              patch.tools = {
-                allow:
-                  typeof opts.toolsAllowed === "string" && opts.toolsAllowed.trim()
-                    ? opts.toolsAllowed
-                        .split(",")
-                        .map((t: string) => t.trim())
-                        .filter(Boolean)
-                    : undefined,
-                deny:
-                  typeof opts.toolsDenied === "string" && opts.toolsDenied.trim()
-                    ? opts.toolsDenied
-                        .split(",")
-                        .map((t: string) => t.trim())
-                        .filter(Boolean)
-                    : undefined,
-              };
             }
             if (typeof opts.to === "string") {
               const to = opts.to.trim();

@@ -39,6 +39,7 @@ type CronUpdatePatch = {
   patch?: {
     payload?: { message?: string; model?: string; thinking?: string };
     delivery?: { mode?: string; channel?: string; to?: string; bestEffort?: boolean };
+    tools?: { allow?: Array<string>; deny?: Array<string> };
   };
 };
 
@@ -49,6 +50,7 @@ type CronAddParams = {
   deleteAfterRun?: boolean;
   agentId?: string;
   sessionTarget?: string;
+  tools?: { allow?: Array<string>; deny?: Array<string> };
 };
 
 function buildProgram() {
@@ -246,6 +248,89 @@ describe("cron cli", () => {
     expect(params?.agentId).toBe("ops");
   });
 
+  it("supports --tools-allowed on cron add", async () => {
+    resetGatewayMock();
+
+    const program = buildProgram();
+
+    await program.parseAsync(
+      [
+        "cron",
+        "add",
+        "--name",
+        "Test",
+        "--at",
+        "20m",
+        "--session",
+        "isolated",
+        "--message",
+        "hello",
+        "--tools-allowed",
+        "gateway,exec",
+      ],
+      { from: "user" },
+    );
+
+    const addCall = callGatewayFromCli.mock.calls.find((call) => call[0] === "cron.add");
+    const params = addCall?.[2] as { tools?: { allow?: Array<string> } };
+    expect(params?.tools?.allow).toEqual(["gateway", "exec"]);
+  });
+
+  it("supports --tools-denied on cron add", async () => {
+    resetGatewayMock();
+
+    const program = buildProgram();
+
+    await program.parseAsync(
+      [
+        "cron",
+        "add",
+        "--name",
+        "Test",
+        "--at",
+        "20m",
+        "--session",
+        "isolated",
+        "--message",
+        "hello",
+        "--tools-denied",
+        "gateway,exec",
+      ],
+      { from: "user" },
+    );
+
+    const addCall = callGatewayFromCli.mock.calls.find((call) => call[0] === "cron.add");
+    const params = addCall?.[2] as { tools?: { deny?: Array<string> } };
+    expect(params?.tools?.deny).toEqual(["gateway", "exec"]);
+  });
+
+  it("errors when using --tools-allowed/--tools-denied without --session isolated", async () => {
+    resetGatewayMock();
+    const program = buildProgram();
+
+    await expect(async () => {
+      await program.parseAsync(
+        [
+          "cron",
+          "add",
+          "--name",
+          "invalid",
+          "--cron",
+          "0 * * * *",
+          "--session",
+          "main",
+          "--system-event",
+          "tick",
+          "--tools-allowed",
+          "gateway",
+          "--tools-denied",
+          "exec",
+        ],
+        { from: "user" },
+      );
+    }).rejects.toThrow("__exit__:1");
+  });
+
   it("omits empty model and thinking on cron edit", async () => {
     const patch = await runCronEditAndGetPatch([
       "--message",
@@ -433,85 +518,85 @@ describe("cron cli", () => {
     expect(patch?.patch?.delivery?.bestEffort).toBe(false);
   });
 
-  it("sets explicit stagger for cron add", async () => {
+  it("supports --tools-allowed on cron edit", async () => {
     resetGatewayMock();
-  it("supports --tools-allowed on cron add", async () => {
-    callGatewayFromCli.mockClear();
 
     const program = buildProgram();
 
     await program.parseAsync(
       [
         "cron",
-        "add",
-        "--name",
-        "staggered",
-        "--cron",
-        "0 * * * *",
-        "--stagger",
-        "45s",
-        "--session",
-        "main",
-        "--system-event",
-        "tick",
-        "Keep me",
-        "--at",
-        "20m",
-        "--session",
-        "isolated",
+        "edit",
+        "job-1",
         "--message",
         "hello",
+        "--session",
+        "isolated",
         "--tools-allowed",
         "gateway,exec",
       ],
       { from: "user" },
     );
 
-    const addCall = callGatewayFromCli.mock.calls.find((call) => call[0] === "cron.add");
-    const params = addCall?.[2] as { schedule?: { kind?: string; staggerMs?: number } };
-    expect(params?.schedule?.kind).toBe("cron");
-    expect(params?.schedule?.staggerMs).toBe(45_000);
+    const updateCall = callGatewayFromCli.mock.calls.find((call) => call[0] === "cron.update");
+    const patch = updateCall?.[2] as { patch?: { tools?: { allow?: Array<string> } } };
+    expect(patch?.patch?.tools?.allow).toEqual(["gateway", "exec"]);
   });
 
-  it("sets exact cron mode on add", async () => {
+  it("supports --tools-denied on cron edit", async () => {
     resetGatewayMock();
-    const params = addCall?.[2] as { tools?: { allow: Array<string> } };
-    expect(params?.tools?.allow).toEqual(["gateway", "exec"]);
-  });
-
-  it("supports --tools-denied on cron add", async () => {
-    callGatewayFromCli.mockClear();
 
     const program = buildProgram();
 
     await program.parseAsync(
       [
         "cron",
-        "add",
-        "--name",
-        "exact",
-        "--cron",
-        "0 * * * *",
-        "--exact",
-        "--session",
-        "main",
-        "--system-event",
-        "tick",
-        "Keep me",
-        "--at",
-        "20m",
-        "--session",
-        "isolated",
+        "edit",
+        "job-1",
         "--message",
         "hello",
+        "--session",
+        "isolated",
         "--tools-denied",
         "gateway,exec",
       ],
       { from: "user" },
     );
 
-    const addCall = callGatewayFromCli.mock.calls.find((call) => call[0] === "cron.add");
-    const params = addCall?.[2] as { schedule?: { kind?: string; staggerMs?: number } };
+    const updateCall = callGatewayFromCli.mock.calls.find((call) => call[0] === "cron.update");
+    const patch = updateCall?.[2] as { patch?: { tools?: { deny?: Array<string> } } };
+    expect(patch?.patch?.tools?.deny).toEqual(["gateway", "exec"]);
+  });
+
+  it("sets explicit stagger for cron add", async () => {
+    const params = await runCronAddAndGetParams([
+      "--name",
+      "staggered",
+      "--cron",
+      "0 * * * *",
+      "--stagger",
+      "45s",
+      "--session",
+      "main",
+      "--system-event",
+      "tick",
+    ]);
+    expect(params?.schedule?.kind).toBe("cron");
+    expect(params?.schedule?.staggerMs).toBe(45_000);
+  });
+
+  it("sets exact cron mode on add", async () => {
+    const params = await runCronAddAndGetParams([
+      "--name",
+      "exact",
+      "--cron",
+      "0 * * * *",
+      "--exact",
+      "--session",
+      "main",
+      "--system-event",
+      "tick",
+    ]);
     expect(params?.schedule?.kind).toBe("cron");
     expect(params?.schedule?.staggerMs).toBe(0);
   });
@@ -522,17 +607,6 @@ describe("cron cli", () => {
 
     await expect(
       program.parseAsync(
-    const params = addCall?.[2] as {
-      tools?: { deny: Array<string> };
-    };
-    expect(params?.tools?.deny).toEqual(["gateway", "exec"]);
-  });
-
-  it("errors when using --tools-allowed without --session isolated", async () => {
-    const program = buildProgram();
-
-    await expect(async () => {
-      await program.parseAsync(
         [
           "cron",
           "add",
@@ -559,25 +633,6 @@ describe("cron cli", () => {
 
     await expect(
       program.parseAsync(
-          "Test",
-          "--at",
-          "20m",
-          "--session",
-          "main",
-          "--system-event",
-          "hello",
-          "--tools-allowed",
-          "gateway",
-        ],
-        { from: "user" },
-      );
-    }).rejects.toThrow("__exit__:1");
-  });
-  it("errors when using --tools-allowed without --session isolated", async () => {
-    const program = buildProgram();
-
-    await expect(async () => {
-      await program.parseAsync(
         [
           "cron",
           "add",
@@ -673,18 +728,5 @@ describe("cron cli", () => {
     await expect(
       program.parseAsync(["cron", "edit", "job-1", "--exact"], { from: "user" }),
     ).rejects.toThrow("__exit__:1");
-          "Test",
-          "--at",
-          "20m",
-          "--session",
-          "main",
-          "--system-event",
-          "hello",
-          "--tools-denied",
-          "exec",
-        ],
-        { from: "user" },
-      );
-    }).rejects.toThrow("__exit__:1");
   });
 });
