@@ -424,15 +424,12 @@ export function applyJobPatch(job: CronJob, patch: CronJobPatch) {
   if (patch.tools !== undefined) {
     job.tools = job.tools || {};
 
-    job.tools.allow = job.tools.allow || [];
-    job.tools.deny = job.tools.deny || [];
-
     if (patch.tools.allow) {
-      job.tools.allow = [...new Set([...job.tools.allow, ...patch.tools.allow])];
+      job.tools.allow = [...new Set(patch.tools.allow)];
     }
 
     if (patch.tools.deny) {
-      job.tools.deny = [...new Set([...job.tools.deny, ...patch.tools.deny])];
+      job.tools.deny = [...new Set(patch.tools.deny)];
     }
   }
 
