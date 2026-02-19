@@ -420,8 +420,20 @@ export function applyJobPatch(job: CronJob, patch: CronJobPatch) {
       job.delivery = mergeCronDelivery(job.delivery, legacyDeliveryPatch);
     }
   }
+
   if (patch.tools !== undefined) {
-    job.tools = patch.tools;
+    job.tools = job.tools || {};
+
+    job.tools.allow = job.tools.allow || [];
+    job.tools.deny = job.tools.deny || [];
+
+    if (patch.tools.allow) {
+      job.tools.allow = [...new Set([...job.tools.allow, ...patch.tools.allow])];
+    }
+
+    if (patch.tools.deny) {
+      job.tools.deny = [...new Set([...job.tools.deny, ...patch.tools.deny])];
+    }
   }
 
   if (patch.delivery) {
